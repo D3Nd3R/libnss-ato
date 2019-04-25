@@ -2,7 +2,7 @@
 
 #### Start of system configuration section. ####
 
-CC = gcc
+CC = gcc -DDEBUG_MODE
 INSTALL = /usr/bin/install
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA = ${INSTALL} -m 644

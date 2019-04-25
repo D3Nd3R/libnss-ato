@@ -9,16 +9,16 @@
  * this product may be distributed under the terms of
  * the GNU Lesser General Public License.
  *
- * version 0.2 
- * 
+ * version 0.2
+ *
  * CHANGELOG:
- * strip end of line in reading /etc/libnss-ato 
+ * strip end of line in reading /etc/libnss-ato
  * suggested by Kyler Laird
  *
  * TODO:
  *
  * check bugs
- * 
+ *
  */
 
 #include <nss.h>
@@ -26,6 +26,12 @@
 #include <shadow.h>
 #include <string.h>
 #include <stdio.h>
+
+#define DEBUG_MODE
+
+#ifdef DEBUG_MODE
+#include <syslog.h>
+#endif //DEBUG_MODE
 
 /* for security reasons */
 #define MIN_UID_NUMBER   500
@@ -40,113 +46,154 @@
  */
 
 struct passwd *
-read_conf() 
+        read_conf()
 {
-	FILE *fd;
-	struct passwd *conf;
+#ifdef DEBUG_MODE
+    openlog ("libnss-ato", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
+    syslog(LOG_INFO, "read_conf");
+#endif
+    FILE *fd;
+    struct passwd *conf;
 
-	if ((fd = fopen(CONF_FILE, "r")) == NULL ) {
-		return NULL;
-	}
-	conf = fgetpwent(fd);
+    if ((fd = fopen(CONF_FILE, "r")) == NULL ) {
+        return NULL;
+    }
+    conf = fgetpwent(fd);
 
-	if ( conf->pw_uid < MIN_UID_NUMBER )
-		conf->pw_uid = MIN_UID_NUMBER;
+    if ( conf->pw_uid < MIN_UID_NUMBER )
+        conf->pw_uid = MIN_UID_NUMBER;
 
-	if ( conf->pw_gid < MIN_GID_NUMBER )
-		conf->pw_gid = MIN_GID_NUMBER;
+    if ( conf->pw_gid < MIN_GID_NUMBER )
+        conf->pw_gid = MIN_GID_NUMBER;
 
-	fclose(fd);
-	return conf;
+    fclose(fd);
+#ifdef DEBUG_MODE
+    closelog();
+#endif //DEBUG_MODE
+    return conf;
 }
 
 /* 
  * Allocate some space from the nss static buffer.  The buffer and buflen
  * are the pointers passed in by the C library to the _nss_ntdom_*
- * functions. 
+ * functions.
  *
- *  Taken from glibc 
+ *  Taken from glibc
  */
 
 static char * 
 get_static(char **buffer, size_t *buflen, int len)
 {
-	char *result;
+#ifdef DEBUG_MODE
+    openlog ("libnss-ato", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
+    syslog(LOG_INFO, "read_conf");
+#endif
+    char *result;
 
-	/* Error check.  We return false if things aren't set up right, or
+    /* Error check.  We return false if things aren't set up right, or
          * there isn't enough buffer space left. */
 
-	if ((buffer == NULL) || (buflen == NULL) || (*buflen < len)) {
-		return NULL;
-	}
+    if ((buffer == NULL) || (buflen == NULL) || (*buflen < len)) {
+        return NULL;
+    }
 
-	/* Return an index into the static buffer */
+    /* Return an index into the static buffer */
 
-	result = *buffer;
-	*buffer += len;
-	*buflen -= len;
-
-	return result;
+    result = *buffer;
+    *buffer += len;
+    *buflen -= len;
+#ifdef DEBUG_MODE
+    closelog();
+#endif //DEBUG_MODE
+    return result;
 }
 
 
 enum nss_status
-_nss_ato_getpwnam_r( const char *name, 
-	   	     struct passwd *p, 
-	             char *buffer, 
-	             size_t buflen, 
-	             int *errnop)
+        _nss_ato_getpwnam_r( const char *name,
+                             struct passwd *p,
+                             char *buffer,
+                             size_t buflen,
+                             int *errnop)
 {
-	struct passwd *conf;
-  
-	if ((conf = read_conf()) == NULL) {
-		return NSS_STATUS_NOTFOUND;
-	}
+#ifdef DEBUG_MODE
+    openlog ("libnss-ato", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
+    syslog(LOG_INFO, "read_conf");
+#endif
+    struct passwd *conf;
 
-	*p = *conf;
+    if ((conf = read_conf()) == NULL) {
+#ifdef DEBUG_MODE
+        closelog();
+#endif //DEBUG_MODE
+        return NSS_STATUS_NOTFOUND;
+    }
 
-	/* If out of memory */
-	if ((p->pw_name = get_static(&buffer, &buflen, strlen(name) + 1)) == NULL) {
-		return NSS_STATUS_TRYAGAIN;
-	}
+    *p = *conf;
 
-	/* pw_name stay as the name given */
-	strcpy(p->pw_name, name);
+    /* If out of memory */
+    if ((p->pw_name = get_static(&buffer, &buflen, strlen(name) + 1)) == NULL) {
+#ifdef DEBUG_MODE
+        closelog();
+#endif //DEBUG_MODE
+        return NSS_STATUS_TRYAGAIN;
+    }
 
-	if ((p->pw_passwd = get_static(&buffer, &buflen, strlen("x") + 1)) == NULL) {
-                return NSS_STATUS_TRYAGAIN;
-        }
+    /* pw_name stay as the name given */
+    strcpy(p->pw_name, name);
 
-	strcpy(p->pw_passwd, "x");
+    if ((p->pw_passwd = get_static(&buffer, &buflen, strlen("x") + 1)) == NULL) {
+#ifdef DEBUG_MODE
+        closelog();
+#endif //DEBUG_MODE
+        return NSS_STATUS_TRYAGAIN;
+    }
 
-	return NSS_STATUS_SUCCESS;
+    strcpy(p->pw_passwd, "x");
+#ifdef DEBUG_MODE
+    closelog();
+#endif //DEBUG_MODE
+    return NSS_STATUS_SUCCESS;
 }
 
 enum nss_status
-_nss_ato_getspnam_r( const char *name,
-                     struct spwd *s,
-                     char *buffer,
-                     size_t buflen,
-                     int *errnop)
+        _nss_ato_getspnam_r( const char *name,
+                             struct spwd *s,
+                             char *buffer,
+                             size_t buflen,
+                             int *errnop)
 {
+#ifdef DEBUG_MODE
+    openlog ("libnss-ato", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
+    syslog(LOG_INFO, "read_conf");
+#endif
+    /* If out of memory */
+    if ((s->sp_namp = get_static(&buffer, &buflen, strlen(name) + 1)) == NULL) {
+#ifdef DEBUG_MODE
+        closelog();
+#endif //DEBUG_MODE
+        return NSS_STATUS_TRYAGAIN;
+    }
 
-        /* If out of memory */
-        if ((s->sp_namp = get_static(&buffer, &buflen, strlen(name) + 1)) == NULL) {
-                return NSS_STATUS_TRYAGAIN;
-        }
+    strcpy(s->sp_namp, name);
 
-        strcpy(s->sp_namp, name);
+    if ((s->sp_pwdp = get_static(&buffer, &buflen, strlen("*") + 1)) == NULL) {
+#ifdef DEBUG_MODE
+        closelog();
+#endif //DEBUG_MODE
+        return NSS_STATUS_TRYAGAIN;
+    }
 
-        if ((s->sp_pwdp = get_static(&buffer, &buflen, strlen("*") + 1)) == NULL) {
-                return NSS_STATUS_TRYAGAIN;
-        }
+    strcpy(s->sp_pwdp, "*");
 
-        strcpy(s->sp_pwdp, "*");
+    s->sp_lstchg = 13571;
+    s->sp_min    = 0;
+    s->sp_max    = 99999;
+    s->sp_warn   = 7;
 
-        s->sp_lstchg = 13571;
-        s->sp_min    = 0;
-        s->sp_max    = 99999;
-        s->sp_warn   = 7;
+#ifdef DEBUG_MODE
+    closelog();
+#endif //DEBUG_MODE
 
-        return NSS_STATUS_SUCCESS;
+    return NSS_STATUS_SUCCESS;
 }
